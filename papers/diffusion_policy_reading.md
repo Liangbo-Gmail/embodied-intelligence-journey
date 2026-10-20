@@ -1,8 +1,8 @@
-# Diffusion Policy 阅读笔记（一）：摘要 + 引言
+# Diffusion Policy 阅读笔记
 
 > 论文：Diffusion Policy: Visuomotor Policy Learning via Action Diffusion
 > 作者：Cheng Chi, Shuran Song (Columbia), Russ Tedrake (MIT) 等
-> 日期：2026.10.20 | 状态：摘要+引言已读
+> 日期：2026.10.20 | 状态：摘要+引言+方法部分（第2节）已读
 
 ## 1. 这篇论文要解决什么问题？
 
@@ -29,7 +29,35 @@
 | 隐式策略 Implicit | 学能量函数，找能量最低的动作 | 需要 negative sampling 估计归一化常数，训练不稳定 |
 | **扩散策略（本文）** | 从噪声沿梯度场逐步去噪生成动作 | 多模态✓ 高维动作序列✓ 训练稳定✓ |
 
+## 4. 方法部分（第2节）：扩散策略如何工作
+
+### 4.1 Figure 2：三个时间参数
+- **To（观测窗口）**：输入最近 To 步观测（看过去）
+- **Tp（预测窗口）**：一次预测未来 Tp 步动作（看得远）
+- **Ta（执行窗口）**：只执行前 Ta 步，然后重新观测、重新预测
+- 为什么执行 Ta 步就重预测？—— **闭环控制（closed-loop）**：
+  环境动态变化（物体滑动、位置偏移），一口气执行完 Tp 步中途无法纠偏；
+  每执行 Ta 步用最新观测重新规划，兼顾长程规划与即时反应
+  （Receding Horizon Control）
+
+### 4.2 训练：猜噪声游戏
+公式：L = MSE( εk , εθ(x0 + εk, k) )
+1. 从数据集取真实动作序列 x0
+2. 随机加高斯噪声 εk → 带噪序列
+3. 网络看带噪序列+观测 Ot，猜"加进去的噪声是什么"
+4. 损失 = 猜的噪声 vs 真实噪声的 MSE
+直觉：网络不直接学动作分布（多模态会被平均掉），
+只学"什么样的序列像真的"——这就是 score function 的直觉；
+MSE 损失简单稳定，无需负采样。
+
+### 4.3 CNN版 vs Transformer版
+- **CNN版**（FiLM条件化）：开箱即用、几乎不调参 → 新任务首选
+  缺点：时间卷积偏爱低频信号 → 过度平滑 → 高频动作任务表现差
+- **Transformer版**（交叉注意力+因果注意力）：高频任务 SOTA，
+  但对超参敏感、难训练 → CNN 搞不定时再上
+  
 ## 待深入（下次读）
+- [ ] KL散度与变分下界：为什么MSE损失等价于最小化它？→ 轨道A：概率统计
 - [ ] Score function 的数学推导
 - [ ] Receding Horizon Control 闭环执行细节
 - [ ] Time-series Diffusion Transformer 架构
